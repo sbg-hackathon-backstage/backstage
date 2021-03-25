@@ -44,9 +44,10 @@ proxy:
         $env: CIRCLECI_AUTH_TOKEN
 
   '/jenkins/api':
-    target: http://localhost:31010
+    target: http://ec2-34-250-74-122.eu-west-1.compute.amazonaws.com:31010
+    changeOrigin: true
     headers:
-      Authorization: Basic YWRtaW46MTEwZjBlNDhiOWFkMDkzOGU2ODk1ZWQ5MTg2MGQxMTM1YQo=
+      Authorization: Basic YWRtaW46MTFiMjYwMTRkM2FjOTU1YmI0M2Y0Nzg1NzIyNDMzZjFkOQ==
 
   '/travisci/api':
     target: https://api.travis-ci.com
