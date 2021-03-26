@@ -62,11 +62,11 @@ export class JenkinsApi {
   }
 
   async getLastBuild(jobName: string) {
-    const client = await this.getClient();
-    const job = await client.job.get(jobName);
+    // const client = await this.getClient();
+    // const job = await client.job.get(jobName);
 
-    const lastBuild = await client.build.get(jobName, job.lastBuild.number);
-    return lastBuild;
+    // const lastBuild = await client.build.get(jobName, job.lastBuild.number);
+    return {};
   }
 
   extractScmDetailsFromJob(jobDetails: any): any | undefined {
