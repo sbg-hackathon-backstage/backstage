@@ -185,13 +185,18 @@ export class JenkinsApi {
         },
       },
       status:
-        buildData.find(bd => bd.number === build.number)?.result || 'unknown',
+        buildData.find(bd => bd.number === build.number)?.result || 'pending',
       onRestartClick: () => {
         console.log('building...');
         fetch(
-          `${proxyUrl + this.proxyPath}/job/backstage-demo/job/demo/${
-            build.number
-          }/rebuild`,
+          `${proxyUrl + this.proxyPath}/job/backstage-demo/job/demo/build/api`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({}),
+          },
         );
       },
     }));
