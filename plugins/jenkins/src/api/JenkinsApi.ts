@@ -185,7 +185,7 @@ export class JenkinsApi {
         },
       },
       status:
-        buildData.find(bd => bd.number === build.number)?.result || 'pending',
+        buildData.find(bd => bd.number === build.number)?.result || 'running',
       onRestartClick: () => {
         console.log('building...');
         fetch(
@@ -228,10 +228,11 @@ export class JenkinsApi {
       .pop();
   }
 
-  mapJenkinsBuildToCITable(
+  async mapJenkinsBuildToCITable(
     jenkinsResult: any,
     jobScmInfo?: any,
   ): CITableBuildInfo {
+    console.log(jenkinsResult);
     const source =
       jenkinsResult.actions
         .filter(
@@ -257,6 +258,7 @@ export class JenkinsApi {
     }
 
     const path = new URL(jenkinsResult.url).pathname;
+    const proxyUrl = await this.getProxyUrl();
 
     return {
       id: path,
@@ -265,12 +267,26 @@ export class JenkinsApi {
       buildName: jenkinsResult.fullDisplayName,
       status: jenkinsResult.building ? 'running' : jenkinsResult.result,
       onRestartClick: () => {
-        // TODO: this won't handle non root context path, need a better way to get the job name
-        const { jobName } = this.extractJobDetailsFromBuildName(path);
-        return this.retry(jobName);
+        console.log('building...');
+        fetch(
+          `${proxyUrl + this.proxyPath}/job/backstage-demo/job/demo/build/api`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({}),
+          },
+        );
       },
-      source: source,
-      tests: this.getTestReport(jenkinsResult),
+      source: {
+        branchName: 'master',
+        url: 'https://github.com/sbg-hackathon-backstage/hello-world-react-app',
+        displayName: 'sbg-hackathon-backstage/hello-world-react-app',
+        commit: {
+          hash: '36bc55ea86e292722542879ec4ef5f89745910be',
+        },
+      },
     };
   }
 
@@ -279,8 +295,19 @@ export class JenkinsApi {
     const { jobName, buildNumber } = this.extractJobDetailsFromBuildName(
       buildName,
     );
-    const buildResult = await client.build.get(jobName, buildNumber);
-    return buildResult;
+
+    const proxyUrl = await this.getProxyUrl();
+    const resp = await fetch(
+      `${
+        proxyUrl + this.proxyPath
+      }/job/backstage-demo/job/demo/${buildNumber}/api/json`,
+    );
+
+    if (!resp.ok) {
+      return;
+    }
+
+    return resp.json();
   }
 
   extractJobDetailsFromBuildName(buildName: string) {

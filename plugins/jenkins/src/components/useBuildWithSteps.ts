@@ -28,11 +28,7 @@ export function useBuildWithSteps(buildName: string) {
     try {
       const build = await api.getBuild(buildName);
 
-      const { jobName } = api.extractJobDetailsFromBuildName(buildName);
-      const job = await api.getJob(jobName);
-      const jobInfo = api.extractScmDetailsFromJob(job);
-
-      return Promise.resolve(api.mapJenkinsBuildToCITable(build, jobInfo));
+      return Promise.resolve(api.mapJenkinsBuildToCITable(build, null));
     } catch (e) {
       errorApi.post(e);
       return Promise.reject(e);
