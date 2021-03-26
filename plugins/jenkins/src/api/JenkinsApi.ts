@@ -16,6 +16,7 @@
 
 import { createApiRef, DiscoveryApi } from '@backstage/core';
 import { CITableBuildInfo } from '../components/BuildsPage/lib/CITable';
+import fetch from 'cross-fetch';
 
 const jenkins = require('jenkins');
 
@@ -41,6 +42,11 @@ export class JenkinsApi {
   constructor(options: Options) {
     this.discoveryApi = options.discoveryApi;
     this.proxyPath = options.proxyPath ?? DEFAULT_PROXY_PATH;
+  }
+
+  private async getProxyUrl() {
+    const proxyUrl = await this.discoveryApi.getBaseUrl('proxy');
+    return proxyUrl;
   }
 
   private async getClient() {
@@ -110,15 +116,7 @@ export class JenkinsApi {
   }
 
   async getFolder(folderName: string) {
-    const client = await this.getClient();
-    const folder = await client.job.get({
-      name: folderName,
-      // Filter only be the information we need, instead of loading all fields.
-      // Limit to only show the latest build for each job and only load 50 jobs
-      // at all.
-      // Whitespaces are only included for readablity here and stripped out
-      // before sending to Jenkins
-      tree: `jobs[
+    const tree = `jobs[
                actions[*],
                builds[
                 number,
@@ -139,25 +137,64 @@ export class JenkinsApi {
               jobs{0,1},
               name
             ]{0,50}
-            `.replace(/\s/g, ''),
-    });
-    const results = [];
+            `.replace(/\s/g, '');
 
-    for (const jobDetails of folder.jobs) {
-      const jobScmInfo = this.extractScmDetailsFromJob(jobDetails);
-      if (jobDetails?.jobs) {
-        // skipping folders inside folders for now
-      } else {
-        for (const buildDetails of jobDetails.builds) {
-          const ciTable = this.mapJenkinsBuildToCITable(
-            buildDetails,
-            jobScmInfo,
-          );
-          results.push(ciTable);
-        }
-      }
+    const proxyUrl = await this.getProxyUrl();
+    console.log(proxyUrl + this.proxyPath);
+    const resp = await fetch(
+      `${proxyUrl + this.proxyPath}/job/backstage-demo/job/demo/api/json`,
+      // `http://ec2-34-250-74-122.eu-west-1.compute.amazonaws.com:31010/job/backstage-demo/job/demo/api/json`,
+    );
+
+    if (!resp.ok) {
+      return [];
     }
-    return results;
+
+    const data = await resp.json();
+
+    const buildData = await Promise.all(
+      data.builds.map(build =>
+        fetch(
+          `${proxyUrl + this.proxyPath}/job/backstage-demo/job/demo/${
+            build.number
+          }/api/json`,
+        ).then(resp => {
+          if (!resp.ok) {
+            return {};
+          }
+          return resp.json();
+        }),
+      ),
+    );
+
+    console.log('data', data);
+
+    console.log('buildData', buildData);
+
+    return data.builds.map(build => ({
+      id: `build-${build.number}`,
+      buildName: `backstage-demo/demo/${build.number}`,
+      buildNumber: build.number,
+      buildUrl: build.url,
+      source: {
+        branchName: 'master',
+        url: 'https://github.com/sbg-hackathon-backstage/hello-world-react-app',
+        displayName: 'sbg-hackathon-backstage/hello-world-react-app',
+        commit: {
+          hash: '36bc55ea86e292722542879ec4ef5f89745910be',
+        },
+      },
+      status:
+        buildData.find(bd => bd.number === build.number)?.result || 'unknown',
+      onRestartClick: () => {
+        console.log('building...');
+        fetch(
+          `${proxyUrl + this.proxyPath}/job/backstage-demo/job/demo/${
+            build.number
+          }/rebuild`,
+        );
+      },
+    }));
   }
 
   private getTestReport(

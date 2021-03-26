@@ -246,6 +246,8 @@ export const CITable = () => {
 
   const [tableProps, { setPage, retry, setPageSize }] = useBuilds(projectName);
 
+  console.log('CITable', tableProps);
+
   return (
     <CITableView
       {...tableProps}
